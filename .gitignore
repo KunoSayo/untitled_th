@@ -1,0 +1,18 @@
+*.pdf
+.idea
+*.iml
+
+target
+
+*.pthps
+
+*.exe
+
+*/**/examples/*.pthpsb
+
+*.dll
+
+# maybe the pth runtime output
+*.log
+*/**/screenshots/**
+opt.cfg

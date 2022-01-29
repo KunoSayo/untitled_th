@@ -1,0 +1,47 @@
+[package]
+name = "untitled_th"
+version = "0.1.0"
+authors = ["euOnmyoji <1418780411@qq.com>"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+
+[[bin]]
+name = "untitled_th"
+
+[lib]
+name = "game_core"
+crate-type = ["dylib"]
+
+[dependencies]
+nalgebra = { version = "0.28.0", features = ["convert-bytemuck"] }
+bytemuck = "*"
+image = "*"
+
+lewton = "0.10.2"
+alto = "3.0.4"
+
+shaderc = { version = "0.7", features = ["build-from-source"] }
+wgpu_glyph = "0.16.0"
+winit = "0.26"
+
+rayon = "*"
+chrono = "*"
+profiling = "1.0.3"
+pollster = "0.2.3"
+futures = { version = "*", features = ["thread-pool"] }
+env_logger = "*"
+log = "*"
+specs = "*"
+minimp3 = "0.5.1"
+
+# api
+game_api = { path = "../game_api" }
+
+# Self
+pth-render-lib = { path = "../pth-render-lib" }
+uth_map = { path = "../uth_map" }
+[features]
+debug-game = []
+profile = ["profiling/profile-with-optick"]

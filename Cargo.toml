@@ -1,0 +1,12 @@
+[workspace]
+members = [
+    "untitled_th",
+    "game_api",
+    "uth_map"
+]
+resolver = "2"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+panic = 'unwind'
