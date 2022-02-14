@@ -1,5 +1,10 @@
+extern crate core;
+
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::Read;
 use std::num::NonZeroUsize;
+use std::ops::Deref;
 
 pub mod bound;
 
@@ -34,10 +39,12 @@ impl GameBlock for BlockInfo {
         &self.res
     }
 
-    fn get_flags(&self) -> &[String] {}
+    fn get_flags(&self) -> &[String] {
+        &self.flags
+    }
 
     fn get_values(&self) -> &HashMap<String, f32> {
-        todo!()
+        &self.value
     }
 }
 
@@ -70,17 +77,17 @@ impl FixedUthMap {
     pub fn get_height(&self) -> u32 {
         self.height
     }
-
-    pub fn new(map: Vec<u32>, width: usize, height: usize)
 }
 
-fn read_zero_end_string(reader: &mut &[u8]) -> Result<&[u8], &'static str> {
-    reader.position(|x| x == 0).ok_or("Read zero end string failed").map(|x| {
+fn read_zero_end_string<'a, 'data>(reader: &'a mut &'data [u8]) -> Result<&'data [u8], &'static str> {
+    reader.iter().position(|x| *x == 0).ok_or("Read zero end string failed").map(|x| {
         let ret = &reader[0..x];
         *reader = &reader[x + 1..];
         ret
     })
 }
+
+
 
 impl TryFrom<Vec<u8>> for FixedUthMap {
     // todo: ???? str for err. b k s n
@@ -137,17 +144,40 @@ impl TryFrom<Vec<u8>> for FixedUthMap {
                 value: key_values,
             })
         }
-        let mut map = Vec::with_capacity(width * height as _);
+        let mut map = Vec::with_capacity((width * height) as _);
         for _ in 0..height * width {
             let block_idx = reader.read_u32::<BE>().map_err(|_| "Read block idx failed")?;
             map.push(block_idx);
         }
 
-        todo!()
+        Ok(Self {
+            width,
+            height,
+            blocks: block_info,
+            map,
+        })
     }
 }
 
-mod test {
-    #[test]
-    fn compile() {}
+impl FixedUthMap {
+    pub fn from_file(mut file: File) -> Result<Self, std::io::Error> {
+        let mut str = String::new();
+        file.read_to_string(&mut str)?;
+        for (idx, x) in str.lines().enumerate() {
+            if x.is_empty() {
+                continue;
+            }
+            let args = x.split(" ").collect::<Vec<_>>();
+            if args.len() == 1 {
+                //parse blocks
+            } else if let Some(&"block") = args.get(0) {
+                // block C bounding RESID (flags) ... (values) k number k number..
+                if args.len() < 4 {
+                    return Err(std::io::Error::from(std::io::ErrorKind::UnexpectedEof));
+                }
+            }
+        }
+
+        todo!()
+    }
 }

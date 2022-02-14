@@ -150,7 +150,9 @@ impl ProgressTracker for CounterProgressTracker {
     }
 
     fn new_error_num(&mut self) {
-        self.end_loading();
+        if !self.loaded {
+            self.end_loading();
+        }
         self.inner.errors.fetch_add(1, Ordering::AcqRel);
     }
 }
@@ -208,8 +210,15 @@ impl ResourcesHandles {
         let state = unsafe { std::mem::transmute::<_, &'static GlobalState>(state) };
         let target = self.assets_dir.join("texture").join(&file_path);
         pools.io_pool.spawn_ok(async move {
-            let image = image::load_from_memory(&std::fs::read(target)
-                .expect(&format!("read texture file from {} failed", &file_path)));
+            let data = match std::fs::read(target) {
+                Ok(data) => data,
+                Err(e) => {
+                    progress.new_error_num();
+                    log::warn!("Read texture file {} failed for {:?}", file_path, e);
+                    return;
+                }
+            };
+            let image = image::load_from_memory(&data);
 
             match image {
                 Ok(image) => {

@@ -12,11 +12,13 @@ name = "untitled_th"
 
 [lib]
 name = "game_core"
-crate-type = ["dylib"]
+crate-type = ["lib"]
 
 [dependencies]
 nalgebra = { version = "0.28.0", features = ["convert-bytemuck"] }
 bytemuck = "*"
+byteorder = "*"
+
 image = "*"
 
 lewton = "0.10.2"
@@ -35,6 +37,9 @@ env_logger = "*"
 log = "*"
 specs = "*"
 minimp3 = "0.5.1"
+
+#network
+tokio = {version = "*", features = ["full"]}
 
 # api
 game_api = { path = "../game_api" }

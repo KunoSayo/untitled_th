@@ -11,12 +11,12 @@
 
 And for every block
 
-| Bytes     | Usage            | Content/Type    |
-|-----------|------------------|-----------------|
-| 1         | Flag Count       | u8              |
-| 1         | Key Value Count  | u8              |
-| 1         | Bounding         | u8              |
-| Not Fixed | Block Texture Id | zero-end string |
+| Bytes     | Usage             | Content/Type    |
+|-----------|-------------------|-----------------|
+| 1         | Flag Count        | u8              |
+| 1         | Key Value Count   | u8              |
+| 1         | Bounding          | u8              |
+| Not Fixed | Block Resource Id | zero-end string |
 
 And for every flag contains zero-end string, indicated that the block has the flags.  
 For every key-value, contains zero-end string and following 4bytes b-encoded f32.

@@ -16,7 +16,7 @@ pub struct FixedMap {
 
 impl Map for FixedMap {
     fn get_block(&self, x: i32, y: i32) -> Option<&Entity> {
-        self.blocks.get(x).and_then(|c| c.get(y))
+        self.blocks.get(x as usize).and_then(|c| c.get(y as usize))
     }
 }
 
@@ -26,12 +26,4 @@ impl FixedMap {
             blocks
         }
     }
-}
-
-impl TryFrom<Vec<u8>> for FixedMap {
-    type Error = &'static str;
-    /// The format is temporarily
-    /// Start bytes with uth
-    ///
-    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {}
 }

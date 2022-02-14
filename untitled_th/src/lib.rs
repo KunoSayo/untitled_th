@@ -1,10 +1,12 @@
 use std::collections::HashSet;
+use std::process::abort;
 use std::sync::Arc;
+use std::thread::panicking;
 use std::time::{Duration, Instant};
 
 use env_logger::Target;
 use futures::executor::{LocalPool, LocalSpawner, ThreadPool};
-use futures::task::LocalSpawnExt;
+use futures::task::{LocalSpawnExt, Spawn};
 use image::{DynamicImage, ImageBuffer, ImageFormat};
 use shaderc::ShaderKind;
 use wgpu::{BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BufferBinding, BufferBindingType, BufferDescriptor, BufferUsages, Color, CommandEncoderDescriptor, Extent3d, ImageCopyBuffer, ImageCopyTexture, ImageDataLayout, LoadOp, Maintain, MapMode, Operations, Origin3d, PowerPreference, RenderPassColorAttachment, RenderPassDescriptor, ShaderStages, TextureAspect, TextureFormat};
@@ -31,6 +33,7 @@ mod input;
 mod handles;
 mod audio;
 pub mod config;
+pub mod network;
 
 pub struct Pools {
     pub io_pool: ThreadPool,
@@ -44,10 +47,13 @@ impl Default for Pools {
         let render_spawner = render_pool.spawner();
         Self {
             io_pool: ThreadPool::builder()
-                .pool_size(3)
-                .name_prefix("pth io")
+                .name_prefix("IO Thread")
                 .before_stop(|idx| {
                     log::info!("IO Thread #{} stop", idx);
+                    if panicking() {
+                        log::error!("Someone panicked io thread, aborting...");
+                        abort();
+                    }
                 })
                 .create()
                 .expect("Create pth io thread pool failed"),
@@ -115,7 +121,7 @@ impl std::ops::BitOrAssign for LoopState {
 
 
 // https://doc.rust-lang.org/book/
-pub struct PthData {
+pub struct GameAppData {
     global_state: GlobalState,
     render: MainRendererData,
     pools: Pools,
@@ -127,7 +133,7 @@ pub struct PthData {
     tick_interval: Duration,
 }
 
-impl PthData {
+impl GameAppData {
     fn start_init(&mut self) {
         log::info!("Init render thread.");
         {
@@ -227,6 +233,13 @@ impl PthData {
         }
         if !loop_result.render && self.inputs.is_pressed(&[VirtualKeyCode::F11]) {
             self.save_screen_shots();
+        }
+
+        if let Err(e) = self.pools.io_pool.status() {
+            log::warn!("IO pools error for {:?}", e);
+        }
+        if let Err(e) = self.pools.render_spawner.status() {
+            log::warn!("Render spawner error for {:?}", e);
         }
 
         if self.inputs.is_pressed(&[VirtualKeyCode::F3]) {
@@ -571,7 +584,7 @@ pub fn window_main() -> Result<(), Box<dyn std::error::Error>> {
 
 
     let state = pollster::block_on(new_global(&window, config));
-    let mut pth = PthData::new(state, crate::states::init::Loading::default());
+    let mut pth = GameAppData::new(state, crate::states::init::Loading::default());
     pth.start_init();
 
     log::info!("going to run event loop");
