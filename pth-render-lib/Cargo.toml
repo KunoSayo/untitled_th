@@ -9,4 +9,4 @@ edition = "2021"
 wgpu = { version = "0.12", features = ["spirv"] }
 
 [lib]
-crate-type = ["dylib"]
+crate-type = ["lib"]

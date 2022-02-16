@@ -10,4 +10,4 @@ edition = "2021"
 
 [lib]
 name = "game_api"
-crate-type = ["dylib"]
+crate-type = ["lib"]
