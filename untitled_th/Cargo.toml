@@ -19,6 +19,8 @@ nalgebra = { version = "0.28.0", features = ["convert-bytemuck"] }
 bytemuck = "*"
 byteorder = "*"
 
+mlua = { version = "0.7", features = ["lua54", "async", "vendored"] }
+
 image = "*"
 
 lewton = "0.10.2"
@@ -39,7 +41,7 @@ specs = "*"
 minimp3 = "0.5.1"
 
 #network
-tokio = {version = "*", features = ["full"]}
+tokio = { version = "*", features = ["full"] }
 
 # api
 game_api = { path = "../game_api" }

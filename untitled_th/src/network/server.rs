@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::future::Future;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -60,7 +59,7 @@ impl GameServer {
                         log::debug!("{:?} sent packet with bytes less than header len", addr);
                         continue;
                     }
-                    let mut reader = &buf[..];
+                    let reader = &buf[..];
                     let (header, mut reader) = reader.split_at(3);
                     if header != crate::network::PACKET_HEADER {
                         log::debug!("{:?} sent packet with wrong header", addr);
@@ -71,7 +70,7 @@ impl GameServer {
 
                     let server = self.clone();
                     tokio::spawn(async move {
-                        let mut connected = server.connected.read().await;
+                        let connected = server.connected.read().await;
                         if let Some(client) = connected.get(&addr) {} else {}
                     });
                 }
@@ -80,6 +79,5 @@ impl GameServer {
                 }
             }
         }
-        Ok(())
     }
 }

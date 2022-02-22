@@ -1,5 +1,4 @@
 use std::convert::TryInto;
-use std::time::Duration;
 
 use wgpu_glyph::Text;
 
@@ -9,7 +8,6 @@ use crate::LoopState;
 use crate::render::GlobalState;
 use crate::render::texture2d::{Texture2DObject, Texture2DVertexData};
 use crate::states::{GameState, StateData, StateEvent, Trans};
-use crate::states::load::LoadState;
 
 const BUTTON_COUNT: usize = 9;
 const BUTTON_NAME: [&str; BUTTON_COUNT] = ["Singleplayer", "Multiplayer", "Extra", "Profile", "Replay", "Music Room", "Option", "Cloud", "Exit"];

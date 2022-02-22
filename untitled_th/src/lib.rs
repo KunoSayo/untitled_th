@@ -8,6 +8,7 @@ use env_logger::Target;
 use futures::executor::{LocalPool, LocalSpawner, ThreadPool};
 use futures::task::{LocalSpawnExt, Spawn};
 use image::{DynamicImage, ImageBuffer, ImageFormat};
+use mlua::Lua;
 use shaderc::ShaderKind;
 use wgpu::{BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BufferBinding, BufferBindingType, BufferDescriptor, BufferUsages, Color, CommandEncoderDescriptor, Extent3d, ImageCopyBuffer, ImageCopyTexture, ImageDataLayout, LoadOp, Maintain, MapMode, Operations, Origin3d, PowerPreference, RenderPassColorAttachment, RenderPassDescriptor, ShaderStages, TextureAspect, TextureFormat};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
@@ -34,6 +35,7 @@ mod handles;
 mod audio;
 pub mod config;
 pub mod network;
+mod script;
 
 pub struct Pools {
     pub io_pool: ThreadPool,
@@ -120,7 +122,8 @@ impl std::ops::BitOrAssign for LoopState {
 }
 
 
-// https://doc.rust-lang.org/book/
+/// The game app data contains a lot things
+///
 pub struct GameAppData {
     global_state: GlobalState,
     render: MainRendererData,
@@ -131,6 +134,7 @@ pub struct GameAppData {
     last_render_time: Instant,
     last_tick_time: Instant,
     tick_interval: Duration,
+    lua: mlua::Lua,
 }
 
 impl GameAppData {
@@ -379,6 +383,8 @@ impl GameAppData {
 
     fn new(graphics_state: GlobalState, game_state: impl GameState) -> Self {
         let render = MainRendererData::new(&graphics_state);
+        let lua = mlua::Lua::new();
+
         Self {
             global_state: graphics_state,
             render,
@@ -389,10 +395,11 @@ impl GameAppData {
             last_render_time: Instant::now(),
             last_tick_time: Instant::now(),
             tick_interval: Duration::from_secs_f64(1.0 / 60.0),
-
+            lua,
         }
     }
 }
+
 
 struct LogTarget<Console: std::io::Write> {
     log_file: Option<std::fs::File>,

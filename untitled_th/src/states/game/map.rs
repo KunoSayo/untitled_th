@@ -1,6 +1,4 @@
-use std::fs::File;
-
-use specs::{Entity, World};
+use specs::{Entity};
 
 /// The map in the game.
 /// The left top is zero point

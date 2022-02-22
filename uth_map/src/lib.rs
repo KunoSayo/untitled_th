@@ -4,7 +4,6 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
 use std::num::NonZeroUsize;
-use std::ops::Deref;
 
 pub mod bound;
 
@@ -48,7 +47,7 @@ impl GameBlock for BlockInfo {
     }
 }
 
-pub struct FixedUthMap {
+pub struct FixedUthMapData {
     width: u32,
     height: u32,
     blocks: Vec<BlockInfo>,
@@ -69,7 +68,7 @@ impl BlockInfo {
     }
 }
 
-impl FixedUthMap {
+impl FixedUthMapData {
     pub fn get_width(&self) -> u32 {
         self.width
     }
@@ -89,11 +88,11 @@ fn read_zero_end_string<'a, 'data>(reader: &'a mut &'data [u8]) -> Result<&'data
 
 
 
-impl TryFrom<Vec<u8>> for FixedUthMap {
+impl TryFrom<Vec<u8>> for FixedUthMapData {
     // todo: ???? str for err. b k s n
     type Error = &'static str;
 
-    fn try_from(mut value: Vec<u8>) -> Result<Self, Self::Error> {
+    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
         let mut reader = &value[..];
 
         use byteorder::ReadBytesExt;
@@ -159,25 +158,8 @@ impl TryFrom<Vec<u8>> for FixedUthMap {
     }
 }
 
-impl FixedUthMap {
+impl FixedUthMapData {
     pub fn from_file(mut file: File) -> Result<Self, std::io::Error> {
-        let mut str = String::new();
-        file.read_to_string(&mut str)?;
-        for (idx, x) in str.lines().enumerate() {
-            if x.is_empty() {
-                continue;
-            }
-            let args = x.split(" ").collect::<Vec<_>>();
-            if args.len() == 1 {
-                //parse blocks
-            } else if let Some(&"block") = args.get(0) {
-                // block C bounding RESID (flags) ... (values) k number k number..
-                if args.len() < 4 {
-                    return Err(std::io::Error::from(std::io::ErrorKind::UnexpectedEof));
-                }
-            }
-        }
-
         todo!()
     }
 }

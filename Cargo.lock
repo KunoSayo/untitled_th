@@ -153,6 +153,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d8c1fef690941d3e7788d328517591fecc684c084084702d6ff1641e993699a"
 
 [[package]]
+name = "bstr"
+version = "0.2.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba3569f383e8f1598449f1a423e72e99569137b47740b1da11ef19af3d5c3223"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -994,6 +1003,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "lua-src"
+version = "544.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7341ba039a781c4982ca20761c55f44e07bfefd496a45b1e929763d88f5fc68b"
+dependencies = [
+ "cc",
+]
+
+[[package]]
+name = "luajit-src"
+version = "210.3.2+resty1085a4d"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1e27456f513225a9edd22fc0a5f526323f6adb3099c4de87a84ceb842d93ba4"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "mach"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1142,6 +1169,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b9f1c5b025cda876f66ef43a113f91ebc9f4ccef34843000e0adf6ebbab84e21"
 dependencies = [
  "winapi",
+]
+
+[[package]]
+name = "mlua"
+version = "0.7.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d4c93ad12064932ae8f0667ecd09ca714ff44813fa1d1965ae4279108b67f21"
+dependencies = [
+ "bstr",
+ "cc",
+ "futures-core",
+ "futures-task",
+ "futures-util",
+ "lua-src",
+ "luajit-src",
+ "num-traits",
+ "once_cell",
+ "pkg-config",
+ "rustc-hash",
 ]
 
 [[package]]
@@ -1819,9 +1865,9 @@ checksum = "97565067517b60e2d1ea8b268e59ce036de907ac523ad83a0475da04e818989a"
 
 [[package]]
 name = "shaderc"
-version = "0.7.3"
+version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58da8aaf4ad3508598cdf098567114c98d5f455de7d69b1213232ac557bc67ea"
+checksum = "d6e2c757b804157350d8d79d718c756899226016486aab07a11dddf8741111a0"
 dependencies = [
  "libc",
  "shaderc-sys",
@@ -1829,9 +1875,9 @@ dependencies = [
 
 [[package]]
 name = "shaderc-sys"
-version = "0.7.3"
+version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8bd76ec0bd25f2017a65250373485e43cdc81b5cb8fd83c6115375c8d018cdf9"
+checksum = "a36f3465fce5830d33a58846b9c924f510a1e92bac181834c13b38405efe983b"
 dependencies = [
  "cmake",
  "libc",
@@ -2162,6 +2208,7 @@ dependencies = [
  "lewton",
  "log",
  "minimp3",
+ "mlua",
  "nalgebra",
  "pollster",
  "profiling",
