@@ -134,7 +134,7 @@ pub struct GameAppData {
     last_render_time: Instant,
     last_tick_time: Instant,
     tick_interval: Duration,
-    lua: mlua::Lua,
+    lua: Lua,
 }
 
 impl GameAppData {

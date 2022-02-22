@@ -2,7 +2,6 @@ extern crate core;
 
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::Read;
 use std::num::NonZeroUsize;
 
 pub mod bound;

@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap};
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -11,10 +11,17 @@ use super::packets;
 
 pub enum LogicPacket {}
 
-enum ClientState {}
+enum ClientState {
+    Idle,
+    InRoom,
+    Gaming,
+    Unknown,
+    Changing(Box<ClientState>),
+}
 
 struct ConnectedClient {
     address: SocketAddr,
+    state: ClientState,
     id: usize,
     last_packet_time: std::time::SystemTime,
 }
@@ -23,6 +30,7 @@ impl ConnectedClient {
     fn new(address: SocketAddr, id: usize) -> Self {
         Self {
             address,
+            state: ClientState::Changing(Box::new(ClientState::Idle)),
             id,
             last_packet_time: std::time::SystemTime::now(),
         }
@@ -79,8 +87,7 @@ impl GameServer {
                     let server = self.clone();
                     tokio::spawn(async move {
                         let connected = server.connected.read().await;
-                        if let Some(client) = connected.get(&addr) {
-                        } else {
+                        if let Some(client) = connected.get(&addr) {} else {
                             match packet_type {
                                 packets::CONNECT => {}
                                 _ => {
