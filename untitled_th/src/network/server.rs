@@ -1,10 +1,13 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use byteorder::{ReadBytesExt, BE};
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::RwLock;
+
+use super::packets;
 
 pub enum LogicPacket {}
 
@@ -35,7 +38,6 @@ pub struct GameServer {
     connected: RwLock<HashMap<SocketAddr, ConnectedClient>>,
 }
 
-
 impl GameServer {
     pub async fn new(port: u16) -> tokio::io::Result<Self> {
         log::info!("Binding server port: {}", port);
@@ -50,11 +52,15 @@ impl GameServer {
         })
     }
 
+    /// loop network and should be tokio runtime
     pub async fn loop_network(self: Arc<Self>) -> tokio::io::Result<()> {
         let mut buf = [0; 32 * 1024];
         loop {
             match self.socket.recv_from(&mut buf).await {
                 Ok((n, addr)) => {
+                    let _now = std::time::SystemTime::now();
+                    let _now_ins = std::time::Instant::now();
+
                     if n < crate::network::HEADER_LEN {
                         log::debug!("{:?} sent packet with bytes less than header len", addr);
                         continue;
@@ -65,13 +71,23 @@ impl GameServer {
                         log::debug!("{:?} sent packet with wrong header", addr);
                         continue;
                     }
+                    // we checked the length
+                    let version = reader.read_u16::<BE>().unwrap();
+                    let packet_type = reader.read_u16::<BE>().unwrap();
 
                     let data = Vec::from(&buf[crate::network::HEADER_LEN..n]);
-
                     let server = self.clone();
                     tokio::spawn(async move {
                         let connected = server.connected.read().await;
-                        if let Some(client) = connected.get(&addr) {} else {}
+                        if let Some(client) = connected.get(&addr) {
+                        } else {
+                            match packet_type {
+                                packets::CONNECT => {}
+                                _ => {
+                                    log::debug!("{:?} sent packet but not connected", addr);
+                                }
+                            }
+                        }
                     });
                 }
                 Err(e) => {
