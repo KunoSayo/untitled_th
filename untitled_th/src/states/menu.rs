@@ -58,35 +58,37 @@ impl MainMenu {
 
 impl GameState for MainMenu {
     fn start(&mut self, data: &mut StateData) {
-        let tex = *data.global_state.handles.texture_map.read().unwrap().get("mainbg").expect("Where is the bg tex?");
-        let w = data.global_state.surface_cfg.width as f32;
-        let h = data.global_state.surface_cfg.height as f32;
-        self.background = Some(Texture2DObject {
-            vertex: (0..4).map(|x| {
-                Texture2DVertexData {
-                    pos: match x {
-                        0 => [0.0, h],
-                        1 => [w, h],
-                        2 => [0.0, 0.0],
-                        3 => [w, 0.0],
-                        _ => unreachable!()
-                    },
-                    coord: match x {
-                        0 => [0.0, 0.0],
-                        1 => [1.0, 0.0],
-                        2 => [0.0, 1.0],
-                        3 => [1.0, 1.0],
-                        _ => unreachable!()
-                    },
-                }
-            }).collect::<Vec<_>>().try_into().unwrap(),
-            z: 0.0,
-            tex,
-            obj_id: 0,
-        });
-
-        data.render.render2d.add_tex(data.global_state, tex);
-
+        if let Some(tex) = {
+            let x = data.global_state.handles.texture_map.read().unwrap().get("mainbg").cloned();
+            x
+        } {
+            let w = data.global_state.surface_cfg.width as f32;
+            let h = data.global_state.surface_cfg.height as f32;
+            self.background = Some(Texture2DObject {
+                vertex: (0..4).map(|x| {
+                    Texture2DVertexData {
+                        pos: match x {
+                            0 => [0.0, h],
+                            1 => [w, h],
+                            2 => [0.0, 0.0],
+                            3 => [w, 0.0],
+                            _ => unreachable!()
+                        },
+                        coord: match x {
+                            0 => [0.0, 0.0],
+                            1 => [1.0, 0.0],
+                            2 => [0.0, 1.0],
+                            3 => [1.0, 1.0],
+                            _ => unreachable!()
+                        },
+                    }
+                }).collect::<Vec<_>>().try_into().unwrap(),
+                z: 0.0,
+                tex,
+                obj_id: 0,
+            });
+            data.render.render2d.add_tex(data.global_state, tex);
+        }
         if let Some(al) = &mut data.global_state.al {
             al.play_bgm(data.global_state.handles.bgm_map.read().unwrap()["title"].clone());
         }
@@ -156,8 +158,9 @@ impl GameState for MainMenu {
 
     fn render(&mut self, data: &mut StateData) -> Trans {
         let screen = &data.render.views.get_screen().view;
-
-        data.render.render2d.render(data.global_state, screen, &[self.background.as_ref().unwrap().clone()]);
+        if let Some(ref obj) = self.background {
+            data.render.render2d.render(data.global_state, screen, std::slice::from_ref(obj));
+        }
         {
             let mut encoder = data.global_state.device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Menu Text Encoder") });

@@ -25,7 +25,7 @@ pub struct Texture2DVertexData {
 
 const VERTEX_DATA_SIZE: usize = std::mem::size_of::<Texture2DVertexData>();
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct Texture2DObject {
     pub vertex: [Texture2DVertexData; 4],
     pub z: f32,
