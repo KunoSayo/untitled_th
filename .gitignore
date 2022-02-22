@@ -1,5 +1,6 @@
 *.pdf
 .idea
+.vsc
 *.iml
 
 target
@@ -16,3 +17,6 @@ target
 *.log
 */**/screenshots/**
 opt.cfg
+
+*.bat
+*.sh

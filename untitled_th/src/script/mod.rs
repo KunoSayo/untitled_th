@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use mlua::Lua;
 
 pub struct ScriptManager {
-    lua: mlua::Lua
+    lua: mlua::Lua,
     app_script_root: PathBuf,
 }
 
