@@ -1,3 +1,7 @@
+//! Using lua to write menu logic
+//! Load 'script/menu/main.lua' as the main logic
+//!
+
 use std::convert::TryInto;
 
 use wgpu_glyph::Text;

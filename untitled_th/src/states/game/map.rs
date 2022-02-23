@@ -1,4 +1,4 @@
-use specs::{Entity};
+use specs::Entity;
 
 /// The map in the game.
 /// The left top is zero point

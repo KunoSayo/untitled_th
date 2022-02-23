@@ -1,8 +1,9 @@
-use std::collections::{HashMap};
+use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 
-use byteorder::{ReadBytesExt, BE};
+use byteorder::{BE, ReadBytesExt};
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::RwLock;
@@ -12,11 +13,11 @@ use super::packets;
 pub enum LogicPacket {}
 
 enum ClientState {
+    Connecting(u8),
     Idle,
     InRoom,
     Gaming,
     Unknown,
-    Changing(Box<ClientState>),
 }
 
 struct ConnectedClient {
@@ -27,10 +28,10 @@ struct ConnectedClient {
 }
 
 impl ConnectedClient {
-    fn new(address: SocketAddr, id: usize) -> Self {
+    fn new(address: SocketAddr, id: usize, token: u8) -> Self {
         Self {
             address,
-            state: ClientState::Changing(Box::new(ClientState::Idle)),
+            state: ClientState::Connecting(token),
             id,
             last_packet_time: std::time::SystemTime::now(),
         }
@@ -60,9 +61,18 @@ impl GameServer {
         })
     }
 
+    async fn run_clean_task(self: Arc<Self>) {
+        let sleep_dur = Duration::from_secs(30);
+        loop {
+            tokio::time::sleep(sleep_dur).await;
+        }
+    }
+
     /// loop network and should be tokio runtime
-    pub async fn loop_network(self: Arc<Self>) -> tokio::io::Result<()> {
+    pub async fn run_network(self: Arc<Self>) -> tokio::io::Result<()> {
         let mut buf = [0; 32 * 1024];
+        // the connection manager.
+        tokio::spawn(self.clone().run_clean_task());
         loop {
             match self.socket.recv_from(&mut buf).await {
                 Ok((n, addr)) => {

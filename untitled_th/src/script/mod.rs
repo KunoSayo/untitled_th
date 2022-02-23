@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+
 use mlua::Lua;
 
 pub struct ScriptManager {
