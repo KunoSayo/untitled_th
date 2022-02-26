@@ -14,7 +14,7 @@ use game_api::{GamePos, TexHandle};
 use pth_render_lib::*;
 
 use crate::GlobalState;
-use crate::handles::ResourcesHandles;
+use crate::res::ResourcesHandles;
 
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Pod, Zeroable)]
 #[repr(C, align(4))]

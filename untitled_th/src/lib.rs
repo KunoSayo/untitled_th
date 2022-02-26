@@ -8,17 +8,17 @@ use env_logger::Target;
 use futures::executor::{LocalPool, LocalSpawner, ThreadPool};
 use futures::task::{LocalSpawnExt, Spawn};
 use image::{DynamicImage, ImageBuffer, ImageFormat};
+use mlua::{Lua, Table, UserData};
 use wgpu::*;
 use winit::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
 use winit::event_loop::ControlFlow;
-use winit::window::Window;
 
 // use crate as root;
 use audio::OpenalData;
 use config::Config;
-use handles::ResourcesHandles;
 use pth_render_lib::*;
 use render::{GlobalState, MainRendererData, MainRenderViews};
+use res::ResourcesHandles;
 use states::{GameState, StateData, Trans};
 
 use crate::states::StateEvent;
@@ -28,7 +28,7 @@ mod systems;
 mod ui;
 mod states;
 mod input;
-mod handles;
+mod res;
 mod audio;
 pub mod config;
 pub mod network;
@@ -67,6 +67,9 @@ pub struct LoopState {
     pub control_flow: ControlFlow,
     pub render: bool,
 }
+
+impl UserData for LoopState {}
+
 
 impl LoopState {
     pub const WAIT_ALL: LoopState = LoopState {
@@ -134,16 +137,24 @@ pub struct GameAppData {
     _pin: PhantomPinned,
 }
 
+macro_rules! get_state_data {
+    ($x: expr) => {
+        StateData {
+            pools: &mut $x.pools,
+            inputs: &$x.inputs,
+            global_state: &mut $x.global_state,
+            render: &mut $x.render,
+            lua: unsafe {std::mem::transmute::<_, &'static mlua::Lua>(&$x.lua)},
+        }
+    };
+}
+
 impl GameAppData {
     fn start_init(&mut self) {
         log::info!("Init game app data");
         {
-            let mut state_data = StateData {
-                pools: &mut self.pools,
-                inputs: &self.inputs,
-                global_state: &mut self.global_state,
-                render: &mut self.render,
-            };
+            let mut state_data = get_state_data!(self);
+
 
             self.states.last_mut().unwrap().start(&mut state_data);
         }
@@ -151,16 +162,30 @@ impl GameAppData {
             std::mem::transmute::<_, &'static GlobalState>(&self.global_state)
         };
         self.lua.set_app_data(global);
+        {
+            // setup global user data
+            let lua_g = self.lua.globals();
+            let init_source = format!("{}={}", script::ROOT_TABLE_NAME, r#"{menu={loopState={}}}"#);
+            let init_chunk = self.lua.load(&init_source);
+            init_chunk.exec().unwrap();
+            let loop_state_table = match script::get_from_tables::<Table>(&lua_g, &[script::ROOT_TABLE_NAME, "menu", "loopState"]) {
+                Ok(v) => v,
+                Err(e) => {
+                    log::error!("Get table failed for {:?}", e);
+                    panic!("Cannot init lua user data");
+                }
+            };
+            loop_state_table.set("wait", LoopState::WAIT).unwrap();
+            loop_state_table.set("waitAll", LoopState::WAIT_ALL).unwrap();
+            loop_state_table.set("poll", LoopState::POLL).unwrap();
+            loop_state_table.set("pollNoRender", LoopState::POLL_WITHOUT_RENDER).unwrap();
+        }
     }
 
     fn process_tran(&mut self, tran: Trans) {
         let last = self.states.last_mut().unwrap();
-        let mut state_data = StateData {
-            pools: &mut self.pools,
-            inputs: &self.inputs,
-            global_state: &mut self.global_state,
-            render: &mut self.render,
-        };
+        let mut state_data = get_state_data!(self);
+
         match tran {
             Trans::Push(mut x) => {
                 x.start(&mut state_data);
@@ -194,12 +219,8 @@ impl GameAppData {
         self.inputs.swap_frame();
         let mut loop_result = LoopState::WAIT_ALL;
         {
-            let mut state_data = StateData {
-                pools: &mut self.pools,
-                inputs: &self.inputs,
-                global_state: &mut self.global_state,
-                render: &mut self.render,
-            };
+            let mut state_data = get_state_data!(self);
+
             for x in &mut self.states {
                 x.shadow_tick(&state_data);
                 loop_result |= x.shadow_update();
@@ -214,12 +235,7 @@ impl GameAppData {
             if tick_dur > self.tick_interval {
                 self.inputs.tick();
 
-                let mut state_data = StateData {
-                    pools: &mut self.pools,
-                    inputs: &self.inputs,
-                    global_state: &mut self.global_state,
-                    render: &mut self.render,
-                };
+                let mut state_data = get_state_data!(self);
 
                 if let Some(last) = self.states.last_mut() {
                     let tran = last.game_tick(&mut state_data);
@@ -285,12 +301,8 @@ impl GameAppData {
             self.global_state.queue.submit(Some(encoder.finish()));
         }
         {
-            let mut state_data = StateData {
-                pools: &mut self.pools,
-                inputs: &self.inputs,
-                global_state: &mut self.global_state,
-                render: &mut self.render,
-            };
+            let mut state_data = get_state_data!(self);
+
 
             for game_state in &mut self.states {
                 game_state.shadow_render(&state_data);

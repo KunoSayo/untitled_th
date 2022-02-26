@@ -1,3 +1,5 @@
+use mlua::UserData;
+
 use crate::{GlobalState, LoopState, MainRendererData, Pools};
 use crate::input::BakedInputs;
 
@@ -34,9 +36,10 @@ pub struct StateData<'a> {
     pub inputs: &'a BakedInputs,
     pub global_state: &'a mut GlobalState,
     pub render: &'a mut MainRendererData,
+    pub lua: &'static mlua::Lua,
 }
 
-pub trait GameState: Send + 'static {
+pub trait GameState: 'static {
     fn start(&mut self, _: &mut StateData) {}
 
     fn update(&mut self, _: &mut StateData) -> (Trans, LoopState) { (Trans::None, LoopState::WAIT) }

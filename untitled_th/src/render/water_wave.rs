@@ -7,7 +7,7 @@ use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use pth_render_lib::*;
 
 use crate::GlobalState;
-use crate::handles::ResourcesHandles;
+use crate::res::ResourcesHandles;
 
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 #[repr(C, align(4))]

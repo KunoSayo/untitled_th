@@ -6,6 +6,8 @@ use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicU16, Ordering};
 
 use alto::Buffer;
+use futures::future::RemoteHandle;
+use futures::task::SpawnExt;
 use image::GenericImageView;
 use lewton::inside_ogg::OggStreamReader;
 use shaderc::ShaderKind;
@@ -289,6 +291,21 @@ impl ResourcesHandles {
                 }
             }
         });
+    }
+
+    pub fn read_all_string(self: &Arc<Self>, path: String, pools: &Pools, mut progress: impl ProgressTracker) -> RemoteHandle<String> {
+        let target = self.res_root.join(&path);
+        pools.io_pool.spawn_with_handle(async move {
+            let data = match std::fs::read_to_string(target) {
+                Ok(data) => data,
+                Err(e) => {
+                    progress.new_error_num();
+                    log::warn!("Read texture file {} failed for {:?}", path, e);
+                    return "".into();
+                }
+            };
+            data
+        }).expect("Spawn with handle to read string failed")
     }
 
     pub fn load_bgm_static(self: &Arc<Self>, name: &'static str, file_path: &'static str,

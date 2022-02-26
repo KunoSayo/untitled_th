@@ -8,12 +8,12 @@ use winit::window::Window;
 
 use pth_render_lib::*;
 use root::audio::OpenalData;
-use root::handles::{ResourcesHandles, Texture};
 use root::render::texture2d::Texture2DRender;
+use root::res::{ResourcesHandles, Texture};
 
 use crate as root;
 use crate::config::Config;
-use crate::handles::TextureInfo;
+use crate::res::TextureInfo;
 
 pub mod texture2d;
 pub mod water_wave;
@@ -40,7 +40,7 @@ pub struct GlobalState {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub handles: Arc<ResourcesHandles>,
-    pub views: HashMap<String, crate::handles::Texture>,
+    pub views: HashMap<String, crate::res::Texture>,
     pub screen_uni_buffer: Buffer,
     pub screen_uni_bind_layout: BindGroupLayout,
     pub screen_uni_bind: BindGroup,
