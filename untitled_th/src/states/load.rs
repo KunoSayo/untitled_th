@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use crate::LoopState;
-use crate::res::Progress;
+use crate::resource::Progress;
 use crate::states::{GameState, StateData, Trans};
 
 pub struct LoadState<P: Progress = ()> {

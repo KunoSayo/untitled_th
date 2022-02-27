@@ -1,5 +1,7 @@
 use std::collections::HashMap;
+use std::process::abort;
 use std::sync::Arc;
+use std::thread::panicking;
 
 use shaderc::ShaderKind;
 use wgpu::*;
@@ -9,11 +11,12 @@ use winit::window::Window;
 use pth_render_lib::*;
 use root::audio::OpenalData;
 use root::render::texture2d::Texture2DRender;
-use root::res::{ResourcesHandles, Texture};
+use root::resource::{ResourcesHandles, Texture};
 
 use crate as root;
 use crate::config::Config;
-use crate::res::TextureInfo;
+use crate::resource::TextureInfo;
+use crate::ThreadPool;
 
 pub mod texture2d;
 pub mod water_wave;
@@ -40,7 +43,7 @@ pub struct GlobalState {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub handles: Arc<ResourcesHandles>,
-    pub views: HashMap<String, crate::res::Texture>,
+    pub views: HashMap<String, crate::resource::Texture>,
     pub screen_uni_buffer: Buffer,
     pub screen_uni_bind_layout: BindGroupLayout,
     pub screen_uni_bind: BindGroup,
@@ -48,6 +51,7 @@ pub struct GlobalState {
     pub dyn_data: DynamicData,
     pub config: Config,
     pub al: Option<OpenalData>,
+    pub io_pool: ThreadPool,
 }
 
 pub struct MainRenderViews {
@@ -276,6 +280,17 @@ impl GlobalState {
             dyn_data: Default::default(),
             config,
             al,
+            io_pool: ThreadPool::builder()
+                .name_prefix("IO Thread")
+                .before_stop(|idx| {
+                    log::info!("IO Thread #{} stop", idx);
+                    if panicking() {
+                        log::error!("Someone panicked io thread, aborting...");
+                        abort();
+                    }
+                })
+                .create()
+                .expect("Create pth io thread pool failed"),
         }
     }
 }

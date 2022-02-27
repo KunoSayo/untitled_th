@@ -1,24 +1,28 @@
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::fmt::Formatter;
+use std::ops::Deref;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
-use std::sync::atomic::{AtomicU16, Ordering};
 
 use alto::Buffer;
 use futures::future::RemoteHandle;
 use futures::task::SpawnExt;
 use image::GenericImageView;
 use lewton::inside_ogg::OggStreamReader;
+use mlua::UserData;
 use shaderc::ShaderKind;
 use wgpu::{Extent3d, ImageCopyTexture, Origin3d, TextureAspect, TextureDimension, TextureFormat, TextureUsages};
 use wgpu_glyph::ab_glyph::FontArc;
 
 use game_api::TexHandle;
+pub use progress::*;
 use pth_render_lib::*;
 
-use crate::Pools;
+use crate::{Pools, ThreadPool};
 use crate::render::GlobalState;
+
+pub mod progress;
 
 #[derive(Debug)]
 pub struct Texture {
@@ -51,6 +55,27 @@ pub struct ResourcesHandles {
     pub bgm_map: RwLock<HashMap<String, Arc<Buffer>>>,
 }
 
+#[repr(transparent)]
+pub struct FontWrapper(pub FontArc);
+
+impl Deref for FontWrapper {
+    type Target = FontArc;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<&FontArc> for FontWrapper {
+    fn from(f: &FontArc) -> Self {
+        Self {
+            0: f.clone()
+        }
+    }
+}
+
+impl UserData for FontWrapper {}
+
 impl std::fmt::Debug for ResourcesHandles {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ResourcesHandle")
@@ -65,108 +90,6 @@ impl std::fmt::Debug for ResourcesHandles {
     }
 }
 
-#[derive(Default)]
-struct CounterInner {
-    loading: AtomicU16,
-    finished: AtomicU16,
-    errors: AtomicU16,
-}
-
-#[derive(Default)]
-pub struct CounterProgress {
-    inner: Arc<CounterInner>,
-}
-
-pub struct CounterProgressTracker {
-    loaded: bool,
-    inner: Arc<CounterInner>,
-}
-
-pub trait Progress {
-    type Tracker: ProgressTracker;
-    fn num_loading(&self) -> u16;
-
-    fn num_finished(&self) -> u16;
-
-    fn error_nums(&self) -> u16;
-    fn create_tracker(&self) -> Self::Tracker;
-}
-
-pub trait ProgressTracker: 'static + Send {
-    fn end_loading(&mut self) {}
-
-    fn new_error_num(&mut self) {}
-}
-
-impl Progress for CounterProgress {
-    type Tracker = CounterProgressTracker;
-
-    fn num_loading(&self) -> u16 {
-        self.inner.loading.load(Ordering::Acquire)
-    }
-
-    fn num_finished(&self) -> u16 {
-        self.inner.finished.load(Ordering::Acquire)
-    }
-
-    fn error_nums(&self) -> u16 {
-        self.inner.errors.load(Ordering::Acquire)
-    }
-
-    fn create_tracker(&self) -> Self::Tracker {
-        self.inner.loading.fetch_add(1, Ordering::AcqRel);
-        CounterProgressTracker {
-            loaded: false,
-            inner: self.inner.clone(),
-        }
-    }
-}
-
-impl Progress for () {
-    type Tracker = ();
-
-    fn num_loading(&self) -> u16 {
-        0
-    }
-
-    fn num_finished(&self) -> u16 {
-        0
-    }
-
-    fn error_nums(&self) -> u16 {
-        0
-    }
-
-    fn create_tracker(&self) -> Self::Tracker {
-        ()
-    }
-}
-
-impl ProgressTracker for () {}
-
-impl ProgressTracker for CounterProgressTracker {
-    fn end_loading(&mut self) {
-        self.loaded = true;
-        self.inner.loading.fetch_sub(1, Ordering::AcqRel);
-        self.inner.finished.fetch_add(1, Ordering::AcqRel);
-    }
-
-    fn new_error_num(&mut self) {
-        if !self.loaded {
-            self.end_loading();
-        }
-        self.inner.errors.fetch_add(1, Ordering::AcqRel);
-    }
-}
-
-impl Drop for CounterProgressTracker {
-    fn drop(&mut self) {
-        if !self.loaded {
-            //now loaded.
-            self.end_loading();
-        }
-    }
-}
 
 impl Default for ResourcesHandles {
     fn default() -> Self {
@@ -208,10 +131,10 @@ impl ResourcesHandles {
     }
 
     pub fn load_texture(self: Arc<Self>, name: String, file_path: String,
-                        state: &GlobalState, pools: &Pools, mut progress: impl ProgressTracker) {
+                        state: &GlobalState, mut progress: impl ProgressTracker) {
         let state = unsafe { std::mem::transmute::<_, &'static GlobalState>(state) };
         let target = self.assets_dir.join("texture").join(&file_path);
-        pools.io_pool.spawn_ok(async move {
+        state.io_pool.spawn_ok(async move {
             let data = match std::fs::read(target) {
                 Ok(data) => data,
                 Err(e) => {
@@ -309,9 +232,9 @@ impl ResourcesHandles {
     }
 
     pub fn load_bgm_static(self: &Arc<Self>, name: &'static str, file_path: &'static str,
-                           context: alto::Context, pools: &Pools, mut progress: impl ProgressTracker) {
+                           context: alto::Context, io_pool: &ThreadPool, mut progress: impl ProgressTracker) {
         let this = self.clone();
-        pools.io_pool.spawn_ok(async move {
+        io_pool.spawn_ok(async move {
             let target = this.assets_dir.join("sounds").join(file_path);
             let (audio_bin, freq, channel) = match file_path.rsplitn(2, ".").next().unwrap_or("ogg") {
                 "mp3" => {
@@ -375,9 +298,13 @@ impl ResourcesHandles {
         });
     }
 
+    pub fn get_font_to_lua(&self, id: &str) -> Option<FontWrapper> {
+        self.fonts.read().unwrap().get(id).map(|x| x.into())
+    }
+
     #[inline]
     pub fn load_texture_static(self: &Arc<Self>, name: &'static str, file_path: &'static str,
-                               state: &GlobalState, pools: &Pools, progress: impl ProgressTracker) {
-        self.clone().load_texture(name.into(), file_path.into(), state, pools, progress);
+                               state: &GlobalState, progress: impl ProgressTracker) {
+        self.clone().load_texture(name.into(), file_path.into(), state, progress);
     }
 }

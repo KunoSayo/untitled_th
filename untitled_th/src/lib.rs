@@ -1,14 +1,12 @@
 use std::collections::HashSet;
 use std::marker::PhantomPinned;
-use std::process::abort;
-use std::thread::panicking;
 use std::time::{Duration, Instant};
 
 use env_logger::Target;
 use futures::executor::{LocalPool, LocalSpawner, ThreadPool};
 use futures::task::{LocalSpawnExt, Spawn};
 use image::{DynamicImage, ImageBuffer, ImageFormat};
-use mlua::{Lua, Table, UserData};
+use mlua::UserData;
 use wgpu::*;
 use winit::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
 use winit::event_loop::ControlFlow;
@@ -18,7 +16,7 @@ use audio::OpenalData;
 use config::Config;
 use pth_render_lib::*;
 use render::{GlobalState, MainRendererData, MainRenderViews};
-use res::ResourcesHandles;
+use resource::ResourcesHandles;
 use states::{GameState, StateData, Trans};
 
 use crate::states::StateEvent;
@@ -28,7 +26,7 @@ mod systems;
 mod ui;
 mod states;
 mod input;
-mod res;
+mod resource;
 mod audio;
 pub mod config;
 pub mod network;
@@ -40,22 +38,12 @@ pub struct Pools {
     pub render_spawner: LocalSpawner,
 }
 
-impl Default for Pools {
-    fn default() -> Self {
+impl Pools {
+    fn new(io_pool: ThreadPool) -> Self {
         let render_pool = LocalPool::new();
         let render_spawner = render_pool.spawner();
         Self {
-            io_pool: ThreadPool::builder()
-                .name_prefix("IO Thread")
-                .before_stop(|idx| {
-                    log::info!("IO Thread #{} stop", idx);
-                    if panicking() {
-                        log::error!("Someone panicked io thread, aborting...");
-                        abort();
-                    }
-                })
-                .create()
-                .expect("Create pth io thread pool failed"),
+            io_pool,
             render_pool,
             render_spawner,
         }
@@ -162,24 +150,7 @@ impl GameAppData {
             std::mem::transmute::<_, &'static GlobalState>(&self.global_state)
         };
         self.lua.set_app_data(global);
-        {
-            // setup global user data
-            let lua_g = self.lua.globals();
-            let init_source = format!("{}={}", script::ROOT_TABLE_NAME, r#"{menu={loopState={}}}"#);
-            let init_chunk = self.lua.load(&init_source);
-            init_chunk.exec().unwrap();
-            let loop_state_table = match script::get_from_tables::<Table>(&lua_g, &[script::ROOT_TABLE_NAME, "menu", "loopState"]) {
-                Ok(v) => v,
-                Err(e) => {
-                    log::error!("Get table failed for {:?}", e);
-                    panic!("Cannot init lua user data");
-                }
-            };
-            loop_state_table.set("wait", LoopState::WAIT).unwrap();
-            loop_state_table.set("waitAll", LoopState::WAIT_ALL).unwrap();
-            loop_state_table.set("poll", LoopState::POLL).unwrap();
-            loop_state_table.set("pollNoRender", LoopState::POLL_WITHOUT_RENDER).unwrap();
-        }
+        script::init_client_lua(&self.lua);
     }
 
     fn process_tran(&mut self, tran: Trans) {
@@ -397,11 +368,11 @@ impl GameAppData {
     fn new(graphics_state: GlobalState, game_state: impl GameState) -> Self {
         let render = MainRendererData::new(&graphics_state);
         let lua = mlua::Lua::new();
-
+        let io_pool = graphics_state.io_pool.clone();
         Self {
             global_state: graphics_state,
             render,
-            pools: Default::default(),
+            pools: Pools::new(io_pool),
             states: vec![Box::new(game_state)],
             inputs: Default::default(),
             running_game_thread: true,
