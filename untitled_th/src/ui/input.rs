@@ -103,6 +103,7 @@ impl TextInput {
     }
 
     pub fn render_to_screen(&self, state: &mut GlobalState, render: &mut MainRendererData, scale: f32, pos: (f32, f32), bounds: (f32, f32)) {
+        let state = &state.wgpu_data;
         let mut encoder = state.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Text Render Encoder") });
 
         {

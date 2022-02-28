@@ -9,10 +9,28 @@ local root = {
             poll = 0,
             pollNoRender = 0,
         }
+    },
+    textAlign = {
+        left = {},
+        right = {},
+        top = {},
+        bottom = {},
+        hCenter = {},
+        vCenter = {},
     }
 }
----@class UserDataHandle
+--- @class UserDataHandle
 local handle = {}
+
+--- @class Progress
+local progress = {}
+
+--- 获得正在加载的数
+function progress:loading()
+end
+--- 获得错误数
+function progress:err()
+end
 
 --- @param text string the text to render
 --- @param font UserDataHandle the font
@@ -20,7 +38,7 @@ local handle = {}
 --- @param y number the y to render
 --- @param bx number the bounding x
 --- @param by number the bounding y
---- @param align string the align [LT MT RT .. ]
+--- @param align UserDataHandle the align [LT MT RT .. ]
 function root.drawText(text, font, x, y, bx, by, align)
 end
 

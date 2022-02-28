@@ -1,6 +1,4 @@
-use mlua::UserData;
-
-use crate::{GlobalState, LoopState, MainRendererData, Pools};
+use crate::{GlobalState, LoopState, Pools};
 use crate::input::BakedInputs;
 
 pub mod init;
@@ -35,7 +33,6 @@ pub struct StateData<'a> {
     pub pools: &'a mut Pools,
     pub inputs: &'a BakedInputs,
     pub global_state: &'a mut GlobalState,
-    pub render: &'a mut MainRendererData,
     pub lua: &'static mlua::Lua,
 }
 

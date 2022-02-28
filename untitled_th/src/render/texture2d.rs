@@ -2,7 +2,6 @@ use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::convert::TryInto;
-use std::sync::Arc;
 
 use bytemuck::Pod;
 use bytemuck::Zeroable;
@@ -13,7 +12,8 @@ use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use game_api::{GamePos, TexHandle};
 use pth_render_lib::*;
 
-use crate::GlobalState;
+use crate::{Config, GlobalState};
+use crate::render::WgpuData;
 use crate::resource::ResourcesHandles;
 
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Pod, Zeroable)]
@@ -122,6 +122,7 @@ impl Ord for Texture2DObject {
     }
 }
 
+#[derive(Debug)]
 pub struct Texture2DRender {
     frag_bind_group_layout: BindGroupLayout,
     render_pipeline: RenderPipeline,
@@ -132,8 +133,8 @@ pub struct Texture2DRender {
 }
 
 impl Texture2DRender {
-    pub fn new(state: &GlobalState, target_color_state: wgpu::ColorTargetState, handles: &Arc<ResourcesHandles>) -> Self {
-        let obj_count_in_buffer = state.config.get_or_default("obj2d_count_once", 8192);
+    pub fn new(state: &WgpuData, config: &Config, target_color_state: wgpu::ColorTargetState, handles: &ResourcesHandles) -> Self {
+        let obj_count_in_buffer = config.get_or_default("obj2d_count_once", 8192);
         let device = &state.device;
         let frag_bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             label: None,
@@ -233,7 +234,7 @@ impl Texture2DRender {
     pub fn add_tex(&mut self, state: &mut GlobalState, tex: usize) {
         if !self.bind_groups.contains_key(&tex) {
             let textures = state.handles.textures.read().unwrap();
-            let tex_bind = state.device.create_bind_group(&BindGroupDescriptor {
+            let tex_bind = state.wgpu_data.device.create_bind_group(&BindGroupDescriptor {
                 label: Some("texture bind"),
                 layout: &self.frag_bind_group_layout,
                 entries: &[BindGroupEntry {
@@ -249,6 +250,7 @@ impl Texture2DRender {
     }
 
     pub fn render<'a>(&'a self, state: &GlobalState, render_target: &TextureView, sorted_obj: &[Texture2DObject]) {
+        let state = &state.wgpu_data;
         profiling::scope!("Render 2d");
         let mut iter = sorted_obj.iter().enumerate();
         if let Some((_, fst)) = iter.next() {
@@ -293,15 +295,16 @@ impl Texture2DRender {
                             return 0;
                         }
                         //16 Bytes per obj
+                        let queue = &state.queue;
                         sorted_obj[start_idx..end].par_chunks(chunk_size).enumerate().for_each(|(obj_idx, obj)| {
                             let mut data: Vec<u8> = Vec::with_capacity(VERTEX_DATA_SIZE << 8);
                             for x in obj {
                                 data.extend_from_slice(bytemuck::cast_slice(&x.vertex));
                             }
-                            state.queue.write_buffer(&self.vertex_buffer, (((drew_obj + (obj_idx * chunk_size)) << 2) * VERTEX_DATA_SIZE) as _, &data);
+                            queue.write_buffer(&self.vertex_buffer, (((drew_obj + (obj_idx * chunk_size)) << 2) * VERTEX_DATA_SIZE) as _, &data);
                         });
 
-                        state.queue.submit(None);
+                        queue.submit(None);
                         rp.set_bind_group(1, &bind_group, &[]);
                         rp.draw_indexed(0..((end - start_idx) * 6) as u32, drew_obj as i32 * 4, 0..1);
                         end - start_idx
@@ -354,6 +357,7 @@ impl Texture2DRender {
 
 
     pub fn blit<'a>(&'a self, state: &GlobalState, src: &TextureView, render_target: &TextureView) {
+        let state = &state.wgpu_data;
         let mut encoder = state.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("2D Render Encoder") });
         let sampler = state.device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,

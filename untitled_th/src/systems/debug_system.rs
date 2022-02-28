@@ -25,7 +25,9 @@ pub static DEBUG: DebugSystem = DebugSystem {
 unsafe impl Sync for DebugSystem {}
 
 impl DebugSystem {
-    pub(crate) fn render(&self, state: &mut GlobalState, render: &mut MainRendererData, dt: f32) {
+    pub(crate) fn render(&self, state: &mut GlobalState, dt: f32) {
+        let render = &mut state.render;
+        let state = &state.wgpu_data;
         let mut encoder = state.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Debug Encoder") });
 
         let delta = self.delta.get() + dt;

@@ -29,6 +29,7 @@ pub struct WaterWaveRender {
 
 impl WaterWaveRender {
     pub fn new(state: &GlobalState, target_color_state: wgpu::ColorTargetState, handles: &Arc<ResourcesHandles>) -> Self {
+        let state = &state.wgpu_data;
         let device = &state.device;
         let frag_bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             label: None,

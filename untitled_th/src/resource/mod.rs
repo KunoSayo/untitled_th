@@ -56,6 +56,7 @@ pub struct ResourcesHandles {
 }
 
 #[repr(transparent)]
+#[derive(Clone)]
 pub struct FontWrapper(pub FontArc);
 
 impl Deref for FontWrapper {
@@ -131,10 +132,11 @@ impl ResourcesHandles {
     }
 
     pub fn load_texture(self: Arc<Self>, name: String, file_path: String,
-                        state: &GlobalState, mut progress: impl ProgressTracker) {
-        let state = unsafe { std::mem::transmute::<_, &'static GlobalState>(state) };
+                        global: &GlobalState, mut progress: impl ProgressTracker) {
         let target = self.assets_dir.join("texture").join(&file_path);
-        state.io_pool.spawn_ok(async move {
+        let queue = global.wgpu_data.queue.clone();
+        let device = global.wgpu_data.device.clone();
+        global.io_pool.spawn_ok(async move {
             let data = match std::fs::read(target) {
                 Ok(data) => data,
                 Err(e) => {
@@ -155,7 +157,7 @@ impl ResourcesHandles {
                         height,
                         depth_or_array_layers: 1,
                     };
-                    let texture = state.device.create_texture(&wgpu::TextureDescriptor {
+                    let texture = device.create_texture(&wgpu::TextureDescriptor {
                         label: None,
                         size,
                         mip_level_count: 1,
@@ -164,7 +166,7 @@ impl ResourcesHandles {
                         format: TextureFormat::Rgba8Unorm,
                         usage: TextureUsages::COPY_DST | TextureUsages::TEXTURE_BINDING,
                     });
-                    state.queue.write_texture(
+                    queue.write_texture(
                         ImageCopyTexture {
                             texture: &texture,
                             mip_level: 0,
@@ -179,7 +181,7 @@ impl ResourcesHandles {
                         },
                         size);
                     let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-                    let sampler = state.device.create_sampler(&wgpu::SamplerDescriptor {
+                    let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
                         address_mode_u: wgpu::AddressMode::ClampToEdge,
                         address_mode_v: wgpu::AddressMode::ClampToEdge,
                         address_mode_w: wgpu::AddressMode::ClampToEdge,
@@ -206,7 +208,7 @@ impl ResourcesHandles {
                         let mut map = self.texture_map.write().unwrap();
                         map.insert(name.to_string(), idx);
                     }
-                    state.queue.submit(None);
+                    queue.submit(None);
                 }
                 Err(e) => {
                     log::warn!("Load image failed for {:?}", e);

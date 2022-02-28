@@ -6,17 +6,11 @@
 //! * update
 //! * * return tran, LoopState
 
-use std::convert::TryInto;
 
 use mlua::{Lua, Table};
 use mlua::prelude::LuaFunction;
-use wgpu_glyph::Text;
-
-use pth_render_lib::*;
 
 use crate::LoopState;
-use crate::render::GlobalState;
-use crate::render::texture2d::{Texture2DObject, Texture2DVertexData};
 use crate::states::{GameState, StateData, StateEvent, Trans};
 
 const BUTTON_COUNT: usize = 9;

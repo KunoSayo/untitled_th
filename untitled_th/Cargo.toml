@@ -19,7 +19,7 @@ nalgebra = { version = "0.28.0", features = ["convert-bytemuck"] }
 bytemuck = "*"
 byteorder = "*"
 
-mlua = { version = "0.7", features = ["lua54", "async", "vendored", "send"] }
+mlua = { version = "0.7", features = ["lua54", "async", "vendored"] }
 
 image = "*"
 

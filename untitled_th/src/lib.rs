@@ -12,11 +12,9 @@ use winit::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
 use winit::event_loop::ControlFlow;
 
 // use crate as root;
-use audio::OpenalData;
 use config::Config;
 use pth_render_lib::*;
-use render::{GlobalState, MainRendererData, MainRenderViews};
-use resource::ResourcesHandles;
+use render::{GlobalState, MainRendererData};
 use states::{GameState, StateData, Trans};
 
 use crate::states::StateEvent;
@@ -112,8 +110,7 @@ impl std::ops::BitOrAssign for LoopState {
 
 /// The game app data contains a lot things
 pub struct GameAppData {
-    global_state: GlobalState,
-    render: MainRendererData,
+    global: GlobalState,
     pools: Pools,
     states: Vec<Box<dyn GameState>>,
     inputs: input::BakedInputs,
@@ -130,8 +127,7 @@ macro_rules! get_state_data {
         StateData {
             pools: &mut $x.pools,
             inputs: &$x.inputs,
-            global_state: &mut $x.global_state,
-            render: &mut $x.render,
+            global_state: &mut $x.global,
             lua: unsafe {std::mem::transmute::<_, &'static mlua::Lua>(&$x.lua)},
         }
     };
@@ -147,7 +143,7 @@ impl GameAppData {
             self.states.last_mut().unwrap().start(&mut state_data);
         }
         let global = unsafe {
-            std::mem::transmute::<_, &'static GlobalState>(&self.global_state)
+            std::mem::transmute::<_, &'static GlobalState>(&self.global)
         };
         self.lua.set_app_data(global);
         script::init_client_lua(&self.lua);
@@ -235,7 +231,7 @@ impl GameAppData {
         }
 
         if self.inputs.is_pressed(&[VirtualKeyCode::F3]) {
-            log::info!("{:?}", self.global_state);
+            log::info!("{:?}", self.global);
         }
 
         loop_result
@@ -248,14 +244,14 @@ impl GameAppData {
         let dt = render_dur.as_secs_f32();
 
         let swap_chain_frame
-            = self.global_state.surface.get_current_texture().expect("Failed to acquire next swap chain texture");
+            = self.global.wgpu_data.surface.get_current_texture().expect("Failed to acquire next swap chain texture");
         let surface_output = &swap_chain_frame;
         {
-            let mut encoder = self.global_state.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Clear Encoder") });
+            let mut encoder = self.global.wgpu_data.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Clear Encoder") });
             let _ = encoder.begin_render_pass(&RenderPassDescriptor {
                 label: None,
                 color_attachments: &[RenderPassColorAttachment {
-                    view: &self.render.views.get_screen().view,
+                    view: &self.global.render.views.get_screen().view,
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Clear(Color {
@@ -269,7 +265,7 @@ impl GameAppData {
                 }],
                 depth_stencil_attachment: None,
             });
-            self.global_state.queue.submit(Some(encoder.finish()));
+            self.global.wgpu_data.queue.submit(Some(encoder.finish()));
         }
         {
             let mut state_data = get_state_data!(self);
@@ -284,15 +280,15 @@ impl GameAppData {
             }
         }
 
-        systems::debug_system::DEBUG.render(&mut self.global_state, &mut self.render, dt);
+        systems::debug_system::DEBUG.render(&mut self.global, dt);
 
         {
-            let mut encoder = self.global_state.device.create_command_encoder(&CommandEncoderDescriptor {
+            let mut encoder = self.global.wgpu_data.device.create_command_encoder(&CommandEncoderDescriptor {
                 label: Some("Copy buffer to screen commands")
             });
-            let size = self.global_state.get_screen_size();
+            let size = self.global.get_screen_size();
             encoder.copy_texture_to_texture(ImageCopyTexture {
-                texture: &self.render.views.get_screen().texture,
+                texture: &self.global.render.views.get_screen().texture,
                 mip_level: 0,
                 origin: Origin3d::default(),
                 aspect: TextureAspect::All,
@@ -306,7 +302,7 @@ impl GameAppData {
                 height: size.1,
                 depth_or_array_layers: 1,
             });
-            self.global_state.queue.submit(Some(encoder.finish()));
+            self.global.wgpu_data.queue.submit(Some(encoder.finish()));
         }
 
         if self.inputs.is_pressed(&[VirtualKeyCode::F11]) {
@@ -319,7 +315,7 @@ impl GameAppData {
     }
 
     fn save_screen_shots(&mut self) {
-        let state = &self.global_state;
+        let state = &self.global.wgpu_data;
         let mut encoder = state.device.create_command_encoder(&CommandEncoderDescriptor {
             label: Some("Save image commands")
         });
@@ -331,7 +327,7 @@ impl GameAppData {
             mapped_at_creation: false,
         });
         encoder.copy_texture_to_buffer(ImageCopyTexture {
-            texture: &self.render.views.get_screen().texture,
+            texture: &self.global.render.views.get_screen().texture,
             mip_level: 0,
             origin: Origin3d::default(),
             aspect: TextureAspect::All,
@@ -365,13 +361,11 @@ impl GameAppData {
         });
     }
 
-    fn new(graphics_state: GlobalState, game_state: impl GameState) -> Self {
-        let render = MainRendererData::new(&graphics_state);
+    fn new(global: GlobalState, game_state: impl GameState) -> Self {
         let lua = mlua::Lua::new();
-        let io_pool = graphics_state.io_pool.clone();
+        let io_pool = global.io_pool.clone();
         Self {
-            global_state: graphics_state,
-            render,
+            global,
             pools: Pools::new(io_pool),
             states: vec![Box::new(game_state)],
             inputs: Default::default(),
@@ -498,8 +492,7 @@ pub fn window_main() -> Result<(), Box<dyn std::error::Error>> {
                 let (width, height) = (size.width, size.height);
                 log::info!("Changed windows size to {}, {}", width, height);
                 if width != 0 && height != 0 {
-                    pth.global_state.resize(width, height);
-                    pth.render.views = MainRenderViews::new(&pth.global_state);
+                    pth.global.resize(width, height);
                     let event = StateEvent::Resize {
                         width,
                         height,
